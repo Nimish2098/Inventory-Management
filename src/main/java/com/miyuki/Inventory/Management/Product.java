@@ -10,6 +10,7 @@ public class Product {
     @Id
     private Long product_id;
     private String product_name;
+
     private Long product_stock;
 
     public Product(Long productId, String product_name, Long product_stock) {
