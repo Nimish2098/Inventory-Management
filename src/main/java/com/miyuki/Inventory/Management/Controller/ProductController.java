@@ -1,5 +1,7 @@
-package com.miyuki.Inventory.Management;
+package com.miyuki.Inventory.Management.Controller;
 
+import com.miyuki.Inventory.Management.Model.Product;
+import com.miyuki.Inventory.Management.Service.ProductService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
