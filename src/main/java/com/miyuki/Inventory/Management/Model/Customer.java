@@ -1,52 +1,51 @@
 package com.miyuki.Inventory.Management.Model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+
+import jakarta.persistence.*;
 
 @Entity
-@Table(name = "customers")
-public class Customer {
+@Table(name= "Customer")
+public class Customer{
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long customerId;
-
-    private String customerName;
-    private String email;
-
-    public Customer() {
+    @GeneratedValue (strategy =  GenerationType.IDENTITY)
+    private Long customer_id;
+    private String customer_email;
+    private String customer_address;
+    public Long getCustomer_id() {
+        return customer_id;
     }
 
-    public Customer(Long customerId, String customerName, String email) {
-        this.customerId = customerId;
-        this.customerName = customerName;
-        this.email = email;
+    public void setCustomer_id(Long customer_id) {
+        this.customer_id = customer_id;
     }
 
-    public Long getCustomerId() {
-        return customerId;
+    public String getCustomer_address() {
+        return customer_address;
     }
 
-    public void setCustomerId(Long customerId) {
-        this.customerId = customerId;
+    public void setCustomer_address(String customer_address) {
+        this.customer_address = customer_address;
     }
 
-    public String getCustomerName() {
-        return customerName;
+    public String getCustomer_email() {
+        return customer_email;
     }
 
-    public void setCustomerName(String customerName) {
-        this.customerName = customerName;
+    public void setCustomer_email(String customer_email) {
+        this.customer_email = customer_email;
     }
 
-    public String getEmail() {
-        return email;
+    public Customer(){
+
+    }
+    public Customer(Long customer_id, String customer_email, String customer_address) {
+        this.customer_id = customer_id;
+        this.customer_email = customer_email;
+        this.customer_address = customer_address;
     }
 
-    public void setEmail(String email) {
-        this.email = email;
-    }
+
+
+
 }

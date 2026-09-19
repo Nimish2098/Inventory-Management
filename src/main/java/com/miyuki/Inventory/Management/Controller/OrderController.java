@@ -1,5 +1,2 @@
 package com.miyuki.Inventory.Management.Controller;
 
-public class CustomerController{
-
-}
