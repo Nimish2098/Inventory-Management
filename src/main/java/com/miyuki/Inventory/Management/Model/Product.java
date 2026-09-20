@@ -1,29 +1,34 @@
 package com.miyuki.Inventory.Management.Model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 @Entity
-@Table(name="users")
+@Table(name = "products")
 public class Product {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long product_id;
     private String product_name;
     private Long product_stock;
-
-    public Product(Long productId, String product_name, Long product_stock) {
-        this.product_id = productId;
-        this.product_name = product_name;
-        this.product_stock = product_stock;
-    }
+    private Double price;
 
     public Product() {
     }
 
-    public Long getProduct_id() {return product_id;}
+    public Product(Long productId, String product_name, Long product_stock, Double price) {
+        this.product_id = productId;
+        this.product_name = product_name;
+        this.product_stock = product_stock;
+        this.price = price;
+    }
 
-    public void setProduct_id(Long product_id) {this.product_id = product_id;}
+    public Long getProduct_id() {
+        return product_id;
+    }
+
+    public void setProduct_id(Long product_id) {
+        this.product_id = product_id;
+    }
 
     public String getProduct_name() {
         return product_name;
@@ -39,5 +44,13 @@ public class Product {
 
     public void setProduct_stock(Long product_stock) {
         this.product_stock = product_stock;
+    }
+
+    public Double getPrice() {
+        return price;
+    }
+
+    public void setPrice(Double price) {
+        this.price = price;
     }
 }
