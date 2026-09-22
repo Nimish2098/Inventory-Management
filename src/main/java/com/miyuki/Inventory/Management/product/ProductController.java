@@ -1,14 +1,10 @@
-package com.miyuki.Inventory.Management.Controller;
+package com.miyuki.Inventory.Management.product;
 
-import com.miyuki.Inventory.Management.Model.Product;
-import com.miyuki.Inventory.Management.Service.ProductService;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -26,11 +22,11 @@ public class ProductController {
         return productService.addProduct(product);
     }
 
-    @PutMapping("/update-stock/{productId}")
-    public Product updateProductStock(@PathVariable Long productId,
-                                     @RequestParam Long stock) {
-        return productService.updateProductStock(productId, stock);
-    }
+//    @PutMapping("/update-stock/{productId}")
+//    public Product updateProductStock(@PathVariable Long productId,
+//                                     @RequestParam Long stock) {
+//        return productService.updateProductStock(productId, stock);
+//    }
 
     @DeleteMapping("/{productId}")
     public String deleteProduct(@PathVariable Long productId) {

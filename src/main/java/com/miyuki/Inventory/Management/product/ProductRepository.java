@@ -1,6 +1,5 @@
-package com.miyuki.Inventory.Management.Repository;
+package com.miyuki.Inventory.Management.product;
 
-import com.miyuki.Inventory.Management.Model.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

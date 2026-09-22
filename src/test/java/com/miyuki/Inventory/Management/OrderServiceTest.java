@@ -1,12 +1,12 @@
 package com.miyuki.Inventory.Management;
 
-import com.miyuki.Inventory.Management.Model.Customer;
-import com.miyuki.Inventory.Management.Model.Order;
-import com.miyuki.Inventory.Management.Model.Product;
-import com.miyuki.Inventory.Management.Repository.CustomerRepository;
-import com.miyuki.Inventory.Management.Repository.OrderRepository;
-import com.miyuki.Inventory.Management.Repository.ProductRepository;
-import com.miyuki.Inventory.Management.Service.OrderService;
+import com.miyuki.Inventory.Management.customer.entity.Customer;
+import com.miyuki.Inventory.Management.order.entity.Order;
+import com.miyuki.Inventory.Management.product.Product;
+import com.miyuki.Inventory.Management.customer.repository.CustomerRepository;
+import com.miyuki.Inventory.Management.order.repository.OrderRepository;
+import com.miyuki.Inventory.Management.product.ProductRepository;
+import com.miyuki.Inventory.Management.order.service.OrderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
