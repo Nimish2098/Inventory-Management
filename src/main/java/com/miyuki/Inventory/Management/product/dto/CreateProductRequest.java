@@ -1,4 +1,7 @@
 package com.miyuki.Inventory.Management.product.dto;
 
-public class CreateProductRequest {
-}
+public record CreateProductRequest (
+        String sku,
+        String name,
+        Long reorder_level
+){}

@@ -1,10 +1,7 @@
 package com.miyuki.Inventory.Management.stock;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 @Entity
 @Table(name = "Stock-Movement")
@@ -12,13 +9,14 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 public class StockMovement {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long stockMovement_id;
 
-    private Long inventoryItem_id;
+    private InventoryItem inventoryItem;
     private Long quantity_change;
     private Enum type;
 }
