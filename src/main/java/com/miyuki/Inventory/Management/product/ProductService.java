@@ -30,6 +30,19 @@ public class ProductService{
 
         return mapToResponse(product);
    }
+
+
+   public ProductResponse updateProduct(Long product_id,Product newProduct){
+
+       Product product = productRepository.findById(product_id).orElseThrow(
+               () -> new RuntimeException("Product not found")
+       );
+
+       product = newProduct;
+       productRepository.save(product);
+       return mapToResponse(newProduct);
+
+   }
    public ProductResponse mapToResponse(Product product){
 
        return new ProductResponse(

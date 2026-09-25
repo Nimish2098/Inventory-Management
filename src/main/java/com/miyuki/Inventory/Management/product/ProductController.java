@@ -26,4 +26,9 @@ public class ProductController {
         return productService.createProduct(request);
     }
 
+    @PostMapping({"/id"})
+    public ProductResponse updateProduct(@PathVariable Long id, @RequestBody Product product){
+        return productService.updateProduct(id,product);
+    }
+
 }
