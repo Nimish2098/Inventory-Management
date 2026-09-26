@@ -2,6 +2,8 @@ package com.miyuki.Inventory.Management.product;
 
 import com.miyuki.Inventory.Management.product.dto.CreateProductRequest;
 import com.miyuki.Inventory.Management.product.dto.ProductResponse;
+import com.miyuki.Inventory.Management.product.dto.UpdateProductRequest;
+import org.hibernate.sql.Update;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,7 +29,7 @@ public class ProductController {
     }
 
     @PostMapping({"/id"})
-    public ProductResponse updateProduct(@PathVariable Long id, @RequestBody Product product){
+    public ProductResponse updateProduct(@PathVariable Long id, @RequestBody UpdateProductRequest product){
         return productService.updateProduct(id,product);
     }
 

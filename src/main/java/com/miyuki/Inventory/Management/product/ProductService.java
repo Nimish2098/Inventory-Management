@@ -3,6 +3,7 @@ package com.miyuki.Inventory.Management.product;
 
 import com.miyuki.Inventory.Management.product.dto.CreateProductRequest;
 import com.miyuki.Inventory.Management.product.dto.ProductResponse;
+import com.miyuki.Inventory.Management.product.dto.UpdateProductRequest;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -32,16 +33,17 @@ public class ProductService{
    }
 
 
-   public ProductResponse updateProduct(Long product_id,Product newProduct){
+   public ProductResponse updateProduct(Long product_id, UpdateProductRequest newProduct){
 
        Product product = productRepository.findById(product_id).orElseThrow(
                () -> new RuntimeException("Product not found")
        );
 
-       product = newProduct;
-       productRepository.save(product);
-       return mapToResponse(newProduct);
+       product.setName(newProduct.name());
+       product.setSku(newProduct.sku());
+       product.setReorder_level(newProduct.reorder_level());
 
+       return mapToResponse(product);
    }
    public ProductResponse mapToResponse(Product product){
 
