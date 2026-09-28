@@ -20,5 +20,7 @@ public class Warehouse {
 
     private String code;
     private String name;
+    private Integer capacity;
+    private boolean isActive;
 
 }
