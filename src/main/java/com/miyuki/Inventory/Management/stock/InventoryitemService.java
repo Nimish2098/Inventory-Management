@@ -4,11 +4,13 @@ import com.miyuki.Inventory.Management.common.exception.InsufficientStockExcepti
 import com.miyuki.Inventory.Management.common.exception.ResourceNotFoundException;
 import com.miyuki.Inventory.Management.product.ProductRepository;
 import com.miyuki.Inventory.Management.stock.dto.StockAdjustmentRequest;
+import com.miyuki.Inventory.Management.stock.dto.StockUpdateResponse;
 import com.miyuki.Inventory.Management.warehouses.WarehouseRepository;
 import org.springframework.boot.context.config.ConfigDataResourceNotFoundException;
 import org.springframework.stereotype.Service;
 
 import javax.naming.InsufficientResourcesException;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -43,5 +45,21 @@ public class InventoryitemService {
             stockMovementRepository.save(stockMovement);
 
         }
+
+        public StockUpdateResponse getStockLevel(Long product_id, Long warehouse_id){
+            Optional<InventoryItem> item =   inventoryitemRepository.findByProductIdAndWarehouseIdForUpdate(product_id,warehouse_id);
+
+            return new StockUpdateResponse(
+                    item.get().getProduct_id(),
+                    item.get().getQuantity()
+            );
+
+        }
+
+        public List<InventoryItem> getLowStockAlerts(){
+
+            return inventoryitemRepository.findByQuantityLessThanReorderLevel();
+        }
+
 
 }
