@@ -1,17 +1,16 @@
 # Inventory Management System
 
-A Spring Boot REST API for managing products and inventory and for processing customer orders. The application uses Spring Data JPA with PostgreSQL and applies transactional business rules so that order creation and cancellation keep order state and inventory synchronized.
+A Spring Boot REST API for managing products, warehouses, inventory levels, stock transfers, and stock movement history. The application uses Spring Data JPA with PostgreSQL and applies transactional business rules so inventory changes and their movement records stay synchronized.
 
 ## Features
 
-- Create products with a name, price, and available stock.
-- Update product stock and delete products.
-- Create orders for existing customers.
-- Validate customers, products, quantities, and available inventory before placing an order.
-- Deduct inventory automatically when an order is confirmed.
-- Cancel confirmed orders and restore the exact purchased quantities.
-- Roll back inventory and order changes when a transactional operation fails.
-- Persist order item quantities so cancellation remains accurate for multi-item orders.
+- Create, retrieve, update, and delete products.
+- Create, retrieve, update, and delete warehouses.
+- Track a product's quantity independently at each warehouse.
+- Adjust stock with typed inbound, outbound, and adjustment movements.
+- Transfer stock between warehouses in one transaction.
+- View low-stock locations and per-location movement history.
+- Return consistent HTTP errors for missing resources, invalid requests, and conflicts.
 
 ## Technology Stack
 
@@ -25,24 +24,27 @@ A Spring Boot REST API for managing products and inventory and for processing cu
 
 ## Architecture
 
-The project follows a conventional layered architecture:
+The project follows a layered architecture:
 
 ```text
-Controller  ->  Service  ->  Repository  ->  PostgreSQL
+Controller (DTO)  ->  Service  ->  Repository  ->  PostgreSQL
+							  |                 |
+						  Mapper          JPA Entity
 ```
 
-- **Controllers** expose HTTP endpoints and translate requests into service calls.
-- **Services** contain validation and inventory/order business rules.
+- **Controllers** expose HTTP endpoints using request and response DTOs.
+- **Mappers** convert between DTOs and JPA entities.
+- **Services** contain validation and inventory business rules.
 - **Repositories** provide Spring Data JPA persistence operations.
-- **Models** represent customers, products, orders, and order item quantities.
+- **Entities** represent products, warehouses, warehouse-specific inventory, and stock movements.
 
 The main packages are located under `src/main/java/com/miyuki/Inventory/Management`:
 
 ```text
-Controller/
-Model/
-Repository/
-Service/
+product/
+warehouses/
+stock/
+common/
 ```
 
 ## Prerequisites
@@ -103,112 +105,57 @@ http://localhost:8080
 
 ```http
 POST /product
-Content-Type: application/json
-```
+## API Reference
 
-Request body:
+All endpoints use the base URL `http://localhost:8080`. Request and response fields retain the existing snake_case convention where applicable.
 
-```json
-{
-	"product_name": "Wireless Mouse",
-	"product_stock": 10,
-	"price": 29.99
-}
-```
+### Products
 
-### Update Product Stock
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/product` | Create a product (`sku`, `name`, `category`, `reorder_level`) |
+| `GET` | `/product` | List products |
+| `GET` | `/product/{id}` | Get one product |
+| `PUT` | `/product/{id}` | Replace product details |
+| `DELETE` | `/product/{id}` | Delete a product |
 
-```http
-PUT /product/update-stock/{productId}?stock=25
-```
+### Warehouses
 
-Example:
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/warehouse` | Create a warehouse (`code`, `name`, `capacity`) |
+| `GET` | `/warehouse` | List active warehouses |
+| `GET` | `/warehouse/{id}` | Get one warehouse |
+| `PUT` | `/warehouse/{id}` | Update `code`, `name`, `capacity`, and `isActive` |
+| `DELETE` | `/warehouse/{id}` | Delete a warehouse when it has no inventory locations |
 
-```bash
-curl -X PUT "http://localhost:8080/product/update-stock/1?stock=25"
-```
+### Inventory
 
-### Delete a Product
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/inventory/adjustments` | Apply an inbound, outbound, or adjustment movement |
+| `POST` | `/inventory/transfers` | Transfer a positive quantity between warehouses |
+| `GET` | `/inventory` | List inventory; optionally filter with `?warehouse_id={id}` |
+| `GET` | `/inventory/low-stock` | List locations below their product reorder level |
+| `GET` | `/inventory/{productId}/{warehouseId}` | Get stock at a location |
+| `GET` | `/inventory/{productId}/{warehouseId}/movements` | Get movement history for a location |
 
-```http
-DELETE /product/{productId}
-```
-
-Example:
-
-```bash
-curl -X DELETE http://localhost:8080/product/1
-```
-
-### Create an Order
-
-```http
-POST /orders
-Content-Type: application/json
-```
-
-Request body:
+Example inbound adjustment:
 
 ```json
 {
-	"customerId": 1,
-	"items": [
-		{
-			"productId": 1,
-			"quantity": 3
-		}
-	]
+  "product_id": 1,
+  "warehouse_id": 1,
+  "quantity": 25,
+  "movementType": "INBOUND"
 }
 ```
 
-When the request succeeds, the order is saved with status `CONFIRMED` and the product stock is reduced by the requested quantity.
-
-### Get an Order
-
-```http
-GET /orders/{id}
-```
-
-Example:
-
-```bash
-curl http://localhost:8080/orders/1
-```
-
-### Cancel an Order
-
-```http
-POST /orders/{id}/cancel
-```
-
-Example:
-
-```bash
-curl -X POST http://localhost:8080/orders/1/cancel
-```
-
-Only orders with status `CONFIRMED` can be cancelled. A successful cancellation changes the status to `CANCELLED` and restores the quantities originally purchased.
+Outbound adjustments use a negative `quantity`; inbound adjustments use a positive quantity. Use `ADJUSTMENT` for either direction. Transfers use `product_id`, `from_warehouse_id`, `to_warehouse_id`, and positive `quantity`; the source and destination must differ.
 
 ## Transaction Behavior
 
-Order creation and cancellation are wrapped in Spring transactions using `@Transactional(rollbackFor = Exception.class)`.
-
-For order creation:
-
-1. The customer and requested products are validated.
-2. Stock availability is checked.
-3. Product stock is reduced.
-4. The order and its item quantities are saved.
-5. All changes are committed together.
-
-If any step fails, the transaction is rolled back so that a partial order or partial stock update is not left in the database.
-
-For cancellation:
-
-1. The order is loaded and its status is checked.
-2. The recorded quantity for each product is restored.
-3. The order status is changed to `CANCELLED`.
-4. The inventory and status change are committed together.
+Stock adjustments and transfers use Spring transactions. Each balance change and its corresponding stock movement are committed together or rolled back together. Outbound changes and transfers cannot reduce a location below zero.
 
 ## Testing
 
@@ -226,7 +173,7 @@ Run the full test suite with the Maven Wrapper:
 ./mvnw test
 ```
 
-The order service tests cover successful order creation, insufficient-inventory rollback, and cancellation with inventory restoration.
+The current `OrderServiceTest` references customer/order packages that are not present in `src/main`; update or remove that obsolete test before relying on a Maven test run.
 
 ## Project Structure
 
@@ -234,10 +181,10 @@ The order service tests cover successful order creation, insufficient-inventory 
 src/
 ├── main/
 │   ├── java/com/miyuki/Inventory/Management/
-│   │   ├── Controller/
-│   │   ├── Model/
-│   │   ├── Repository/
-│   │   └── Service/
+│   │   ├── common/
+│   │   ├── product/
+│   │   ├── stock/
+│   │   └── warehouses/
 │   └── resources/
 │       ├── application.properties
 │       ├── static/
@@ -246,13 +193,11 @@ src/
 		└── java/com/miyuki/Inventory/Management/
 ```
 
-## Current Limitations
+## Operational Notes
 
-- Customer persistence exists, but customer HTTP endpoints are not currently exposed by `CustomerController`.
-- Product creation, stock updates, and deletion are exposed; product retrieval endpoints are not currently exposed by `ProductController`.
-- Error responses currently rely on Spring's default exception handling rather than a dedicated API error format.
-- Database credentials are currently configured directly in `application.properties` and should be externalized for production.
-- Concurrent stock updates do not yet use pessimistic or optimistic locking.
+- Database credentials are currently configured directly in `application.properties`; externalize them for shared or production environments.
+- Inventory is now keyed by product and warehouse, and the inventory/movement table names have been normalized. Back up and migrate existing database data before applying this model to a database containing earlier inventory records.
+- Hibernate is configured with `spring.jpa.hibernate.ddl-auto=update` for development. Use explicit database migrations and a stricter schema strategy for production.
 
 ## License
 

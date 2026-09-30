@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "Stock-Movement")
+@Table(name = "stock_movement")
 @Getter
 @Setter
 @AllArgsConstructor
@@ -14,9 +14,13 @@ public class StockMovement {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long stockMovement_id;
+    private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "inventory_item_id", nullable = false)
     private InventoryItem inventoryItem;
-    private Long quantity_change;
-    private Enum type;
+    private Long quantityChange;
+
+    @Enumerated(EnumType.STRING)
+    private StockMovementType type;
 }

@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name="Product")
+@Table(name = "product", uniqueConstraints = @UniqueConstraint(columnNames = "sku"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,8 +17,9 @@ public class Product{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String sku; //Stock Keeping Unit : A unique code which represents product
+    private String sku;
     private String name;
-    private Long reorder_level;
+    private String category;
+    private Long reorderLevel;
 
 }

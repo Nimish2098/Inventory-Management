@@ -4,7 +4,7 @@ public record ProductResponse(
     Long id,
     String sku,
     String name,
-    Long reorder_level,
-    boolean isLowStock
+    String category,
+    Long reorder_level
 ) {
 }

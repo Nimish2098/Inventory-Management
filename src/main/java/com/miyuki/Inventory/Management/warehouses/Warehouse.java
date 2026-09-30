@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name="warehouse")
+@Table(name = "warehouse", uniqueConstraints = @UniqueConstraint(columnNames = "code"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,6 +21,6 @@ public class Warehouse {
     private String code;
     private String name;
     private Integer capacity;
-    private boolean isActive;
+    private boolean active;
 
 }
