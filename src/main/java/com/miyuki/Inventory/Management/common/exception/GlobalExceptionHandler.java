@@ -20,7 +20,7 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 
-    @ExceptionHandler({IllegalStateException.class, DataIntegrityViolationException.class})
+    @ExceptionHandler({InsufficientStockException.class, IllegalStateException.class, DataIntegrityViolationException.class})
     public ResponseEntity<ProblemDetail> handleConflict(RuntimeException exception) {
         return response(HttpStatus.CONFLICT, exception.getMessage());
     }

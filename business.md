@@ -31,6 +31,27 @@
 
 ## Implementation change log and decisions
 
+### 2026-10-08
+
+- File: `src/main/java/com/miyuki/Inventory/Management/order/OrderService.java`
+  - Accepted orders now stay `PENDING` while their stock is reserved in the same transaction.
+  - Inventory rows are pessimistically locked in product/warehouse order. The first transaction to acquire a row lock is evaluated first; insufficient stock returns a conflict and does not create an order.
+  - Repeated lines for the same product and warehouse are combined. Separate orders from the same customer are allowed while stock remains.
+  - Cancellation locks the order, restores stock only for pending orders, and is idempotent for already-cancelled orders.
+  - Order reservations and cancellations are recorded as outbound and inbound stock movements.
+
+- File: `src/main/java/com/miyuki/Inventory/Management/order/OrderRepository.java`
+  - Added a pessimistic order lock so concurrent cancellation requests cannot restore stock more than once.
+
+- File: `src/main/java/com/miyuki/Inventory/Management/common/exception/GlobalExceptionHandler.java`
+  - Insufficient-stock failures now return HTTP 409 Conflict.
+
+- File: `src/test/java/com/miyuki/Inventory/Management/order/OrderServiceTest.java`
+  - Added tests for pending order creation, insufficient stock rejection, repeated-line aggregation, cancellation/idempotency, and stock movement directions.
+
+- File: `src/test/java/com/miyuki/Inventory/Management/order/OrderConcurrencyIntegrationTest.java`
+  - Added a PostgreSQL-backed test that submits 100 concurrent one-unit orders against 10 units and verifies exactly 10 orders succeed without overselling.
+
 ### 2026-10-01
 
 - File: `src/main/java/com/miyuki/Inventory/Management/customer/Customer.java`
@@ -88,7 +109,8 @@
 ### Summary of implementation decisions
 
 - Orders are created against a customer and are validated against warehouse-level inventory before stock is reduced.
-- Cancellations restore stocked quantity back to the warehouse inventory to keep the ledger consistent.
-- The flow uses transactional order creation and cancellation to protect the inventory balance when multiple requests occur.
+- Accepted orders remain pending while reserving stock; cancelling a pending order restores the stock and records the movement.
+- Transactional inventory and order locks prevent concurrent requests from allocating the same units or cancelling the same order twice.
+- Repeated lines in one order are combined by product and warehouse. Separate orders from one customer are allowed if stock remains.
 - The implementation intentionally focuses on the order lifecycle described in the business document rather than adding unrelated features like payment or shipping.
-- Testing is intentionally left for a separate stage, as requested.
+- Service-level tests cover the main workflow, and a PostgreSQL-backed test verifies concurrent allocation against the configured database.
