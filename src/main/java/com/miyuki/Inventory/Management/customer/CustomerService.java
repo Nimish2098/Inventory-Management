@@ -3,6 +3,9 @@ package com.miyuki.Inventory.Management.customer;
 import com.miyuki.Inventory.Management.common.exception.ResourceNotFoundException;
 import com.miyuki.Inventory.Management.customer.dto.CreateCustomerRequest;
 import com.miyuki.Inventory.Management.customer.dto.CustomerResponse;
+import com.miyuki.Inventory.Management.common.exception.ResourceNotFoundException;
+import com.miyuki.Inventory.Management.user.CurrentUser;
+import com.miyuki.Inventory.Management.user.UserAccountRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -11,9 +14,14 @@ import java.util.List;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final CurrentUser currentUser;
+    private final UserAccountRepository userRepository;
 
-    public CustomerService(CustomerRepository customerRepository) {
+    public CustomerService(CustomerRepository customerRepository, CurrentUser currentUser,
+                           UserAccountRepository userRepository) {
         this.customerRepository = customerRepository;
+        this.currentUser = currentUser;
+        this.userRepository = userRepository;
     }
 
     public CustomerResponse createCustomer(CreateCustomerRequest request) {
@@ -21,20 +29,22 @@ public class CustomerService {
             throw new IllegalArgumentException("Customer name and email are required");
         }
 
-        if (customerRepository.findByEmail(request.email()).isPresent()) {
+        if (customerRepository.findByEmailAndOwner_Id(request.email(), currentUser.id()).isPresent()) {
             throw new IllegalStateException("Customer email already exists");
         }
 
         Customer customer = Customer.builder()
                 .name(request.name())
                 .email(request.email())
+                .owner(userRepository.findById(currentUser.id())
+                        .orElseThrow(() -> new ResourceNotFoundException("User account not found")))
                 .build();
 
         return toResponse(customerRepository.save(customer));
     }
 
     public List<CustomerResponse> getCustomers() {
-        return customerRepository.findAll().stream().map(this::toResponse).toList();
+        return customerRepository.findAllByOwner_Id(currentUser.id()).stream().map(this::toResponse).toList();
     }
 
     public CustomerResponse getCustomer(Long customerId) {
@@ -42,7 +52,7 @@ public class CustomerService {
     }
 
     public Customer findCustomer(Long customerId) {
-        return customerRepository.findById(customerId)
+        return customerRepository.findByIdAndOwner_Id(customerId, currentUser.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Customer " + customerId + " not found"));
     }
 

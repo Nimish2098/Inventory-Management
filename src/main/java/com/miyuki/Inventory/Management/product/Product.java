@@ -1,10 +1,11 @@
 package com.miyuki.Inventory.Management.product;
 
+import com.miyuki.Inventory.Management.user.UserAccount;
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "product", uniqueConstraints = @UniqueConstraint(columnNames = "sku"))
+@Table(name = "product", uniqueConstraints = @UniqueConstraint(columnNames = {"owner_id", "sku"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,5 +22,9 @@ public class Product{
     private String name;
     private String category;
     private Long reorderLevel;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private UserAccount owner;
 
 }

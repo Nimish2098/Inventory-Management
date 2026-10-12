@@ -13,9 +13,11 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByCustomer_Id(Long customerId);
-    List<Order> findByStatus(OrderStatus status);
+    List<Order> findAllByCustomer_Owner_Id(Long ownerId);
+    List<Order> findByStatusAndCustomer_Owner_Id(OrderStatus status, Long ownerId);
+    Optional<Order> findByIdAndCustomer_Owner_Id(Long id, Long ownerId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select o from Order o where o.id = :orderId")
-    Optional<Order> findByIdForUpdate(@Param("orderId") Long orderId);
+    @Query("select o from Order o where o.id = :orderId and o.customer.owner.id = :ownerId")
+    Optional<Order> findByIdForUpdate(@Param("orderId") Long orderId, @Param("ownerId") Long ownerId);
 }

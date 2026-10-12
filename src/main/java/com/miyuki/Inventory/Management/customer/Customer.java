@@ -1,5 +1,6 @@
 package com.miyuki.Inventory.Management.customer;
 
+import com.miyuki.Inventory.Management.user.UserAccount;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,7 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "customer", uniqueConstraints = @UniqueConstraint(columnNames = "email"))
+@Table(name = "customer", uniqueConstraints = @UniqueConstraint(columnNames = {"owner_id", "email"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,4 +23,8 @@ public class Customer {
 
     private String name;
     private String email;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private UserAccount owner;
 }

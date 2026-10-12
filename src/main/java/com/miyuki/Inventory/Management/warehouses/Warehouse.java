@@ -1,5 +1,6 @@
 package com.miyuki.Inventory.Management.warehouses;
 
+import com.miyuki.Inventory.Management.user.UserAccount;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -7,7 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "warehouse", uniqueConstraints = @UniqueConstraint(columnNames = "code"))
+@Table(name = "warehouse", uniqueConstraints = @UniqueConstraint(columnNames = {"owner_id", "code"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,5 +23,9 @@ public class Warehouse {
     private String name;
     private Integer capacity;
     private boolean active;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id")
+    private UserAccount owner;
 
 }

@@ -15,6 +15,7 @@ import com.miyuki.Inventory.Management.stock.InventoryitemRepository;
 import com.miyuki.Inventory.Management.stock.StockMovement;
 import com.miyuki.Inventory.Management.stock.StockMovementRepository;
 import com.miyuki.Inventory.Management.stock.StockMovementType;
+import com.miyuki.Inventory.Management.user.CurrentUser;
 import com.miyuki.Inventory.Management.warehouses.Warehouse;
 import com.miyuki.Inventory.Management.warehouses.WarehouseRepository;
 import org.springframework.stereotype.Service;
@@ -35,19 +36,22 @@ public class OrderService {
     private final WarehouseRepository warehouseRepository;
     private final InventoryitemRepository inventoryitemRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final CurrentUser currentUser;
 
     public OrderService(OrderRepository orderRepository,
                        CustomerService customerService,
                        ProductRepository productRepository,
                        WarehouseRepository warehouseRepository,
                        InventoryitemRepository inventoryitemRepository,
-                       StockMovementRepository stockMovementRepository) {
+                       StockMovementRepository stockMovementRepository,
+                       CurrentUser currentUser) {
         this.orderRepository = orderRepository;
         this.customerService = customerService;
         this.productRepository = productRepository;
         this.warehouseRepository = warehouseRepository;
         this.inventoryitemRepository = inventoryitemRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.currentUser = currentUser;
     }
 
     @Transactional
@@ -75,13 +79,13 @@ public class OrderService {
 
         for (Map.Entry<InventoryKey, Long> requestedItem : requestedQuantities.entrySet()) {
             InventoryKey key = requestedItem.getKey();
-            Product product = productRepository.findById(key.productId())
+            Product product = productRepository.findByIdAndOwner_Id(key.productId(), currentUser.id())
                     .orElseThrow(() -> new ResourceNotFoundException("Product " + key.productId() + " not found"));
-            Warehouse warehouse = warehouseRepository.findById(key.warehouseId())
+            Warehouse warehouse = warehouseRepository.findByIdAndOwner_Id(key.warehouseId(), currentUser.id())
                     .orElseThrow(() -> new ResourceNotFoundException("Warehouse " + key.warehouseId() + " not found"));
 
             InventoryItem inventoryItem = inventoryitemRepository.findByProductIdAndWarehouseIdForUpdate(
-                    key.productId(), key.warehouseId()).orElseThrow(() ->
+                    key.productId(), key.warehouseId(), currentUser.id()).orElseThrow(() ->
                     new InsufficientStockException("Inventory item for product " + key.productId() + " at warehouse " + key.warehouseId() + " not found"));
 
             long quantity = requestedItem.getValue();
@@ -106,7 +110,7 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getOrders() {
-        return orderRepository.findAll().stream().map(this::toResponse).toList();
+        return orderRepository.findAllByCustomer_Owner_Id(currentUser.id()).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -116,12 +120,13 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getPendingOrders() {
-        return orderRepository.findByStatus(OrderStatus.PENDING).stream().map(this::toResponse).toList();
+        return orderRepository.findByStatusAndCustomer_Owner_Id(OrderStatus.PENDING, currentUser.id())
+                .stream().map(this::toResponse).toList();
     }
 
     @Transactional
     public OrderResponse cancelOrder(Long orderId) {
-        Order order = orderRepository.findByIdForUpdate(orderId)
+        Order order = orderRepository.findByIdForUpdate(orderId, currentUser.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Order " + orderId + " not found"));
         if (order.getStatus() == OrderStatus.CANCELLED) {
             return toResponse(order);
@@ -136,7 +141,7 @@ public class OrderService {
                 .toList();
         for (OrderItem item : items) {
             InventoryItem inventoryItem = inventoryitemRepository.findByProductIdAndWarehouseIdForUpdate(
-                    item.getProduct().getId(), item.getWarehouse().getId()).orElseThrow(() ->
+                    item.getProduct().getId(), item.getWarehouse().getId(), currentUser.id()).orElseThrow(() ->
                     new ResourceNotFoundException("Inventory item for product " + item.getProduct().getId()
                             + " at warehouse " + item.getWarehouse().getId() + " not found"));
 
@@ -150,7 +155,7 @@ public class OrderService {
     }
 
     private Order findOrder(Long orderId) {
-        return orderRepository.findById(orderId)
+        return orderRepository.findByIdAndCustomer_Owner_Id(orderId, currentUser.id())
                 .orElseThrow(() -> new ResourceNotFoundException("Order " + orderId + " not found"));
     }
 

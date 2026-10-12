@@ -10,6 +10,8 @@ import com.miyuki.Inventory.Management.product.ProductRepository;
 import com.miyuki.Inventory.Management.stock.InventoryItem;
 import com.miyuki.Inventory.Management.stock.InventoryitemRepository;
 import com.miyuki.Inventory.Management.stock.StockMovementRepository;
+import com.miyuki.Inventory.Management.user.UserAccount;
+import com.miyuki.Inventory.Management.user.UserAccountRepository;
 import com.miyuki.Inventory.Management.warehouses.Warehouse;
 import com.miyuki.Inventory.Management.warehouses.WarehouseRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -17,6 +19,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +34,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-@SpringBootTest
+@SpringBootTest(properties = "app.security.jwt-secret=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
 class OrderConcurrencyIntegrationTest {
 
     @Autowired
@@ -53,6 +58,10 @@ class OrderConcurrencyIntegrationTest {
     @Autowired
     private StockMovementRepository stockMovementRepository;
 
+    @Autowired
+    private UserAccountRepository userRepository;
+
+    private UserAccount user;
     private Long customerId;
     private Long productId;
     private Long warehouseId;
@@ -61,20 +70,29 @@ class OrderConcurrencyIntegrationTest {
     void setUp() {
         String uniqueId = UUID.randomUUID().toString();
 
+        user = new UserAccount();
+        user.setName("Concurrency test user");
+        user.setEmail("user-" + uniqueId + "@example.test");
+        user.setPassword("unused-test-hash");
+        user = userRepository.saveAndFlush(user);
+
         Customer customer = new Customer();
         customer.setName("Concurrency test");
         customer.setEmail("concurrency-" + uniqueId + "@example.test");
+        customer.setOwner(user);
         customerId = customerRepository.saveAndFlush(customer).getId();
 
         Product product = new Product();
         product.setSku("CONCURRENCY-" + uniqueId);
         product.setName("Concurrency test product");
+        product.setOwner(user);
         productId = productRepository.saveAndFlush(product).getId();
 
         Warehouse warehouse = new Warehouse();
         warehouse.setCode("CONCURRENCY-" + uniqueId);
         warehouse.setName("Concurrency test warehouse");
         warehouse.setActive(true);
+        warehouse.setOwner(user);
         warehouseId = warehouseRepository.saveAndFlush(warehouse).getId();
 
         InventoryItem inventoryItem = new InventoryItem();
@@ -104,6 +122,9 @@ class OrderConcurrencyIntegrationTest {
         if (warehouseId != null) {
             warehouseRepository.deleteById(warehouseId);
         }
+        if (user != null) {
+            userRepository.deleteById(user.getId());
+        }
     }
 
     @Test
@@ -116,6 +137,10 @@ class OrderConcurrencyIntegrationTest {
             for (int index = 0; index < requestCount; index++) {
                 requests.add(executor.submit(() -> {
                     startGate.await();
+                    SecurityContext context = SecurityContextHolder.createEmptyContext();
+                    context.setAuthentication(UsernamePasswordAuthenticationToken.authenticated(
+                            user, null, user.getAuthorities()));
+                    SecurityContextHolder.setContext(context);
                     try {
                         orderService.createOrder(new CreateOrderRequest(
                                 customerId,
@@ -123,6 +148,8 @@ class OrderConcurrencyIntegrationTest {
                         return true;
                     } catch (InsufficientStockException exception) {
                         return false;
+                    } finally {
+                        SecurityContextHolder.clearContext();
                     }
                 }));
             }

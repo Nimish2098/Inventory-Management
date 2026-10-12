@@ -5,6 +5,8 @@ import com.miyuki.Inventory.Management.product.dto.CreateProductRequest;
 import com.miyuki.Inventory.Management.product.dto.ProductResponse;
 import com.miyuki.Inventory.Management.product.dto.UpdateProductRequest;
 import com.miyuki.Inventory.Management.common.exception.ResourceNotFoundException;
+import com.miyuki.Inventory.Management.user.CurrentUser;
+import com.miyuki.Inventory.Management.user.UserAccountRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,27 +16,36 @@ public class ProductService{
 
     private final ProductRepository productRepository;
     private final ProductMapper productMapper;
+    private final CurrentUser currentUser;
+    private final UserAccountRepository userRepository;
 
-   public ProductService(ProductRepository productRepository, ProductMapper productMapper){
+   public ProductService(ProductRepository productRepository, ProductMapper productMapper,
+                         CurrentUser currentUser, UserAccountRepository userRepository){
        this.productRepository = productRepository;
        this.productMapper = productMapper;
+       this.currentUser = currentUser;
+       this.userRepository = userRepository;
    }
 
 
    public ProductResponse createProduct(CreateProductRequest request){
 
        validate(request.sku(), request.name(), request.reorder_level());
-       if(productRepository.existsBySku(request.sku())){
+       if(productRepository.existsBySkuAndOwner_Id(request.sku(), currentUser.id())){
            throw new IllegalStateException("Product SKU already exists");
        }
-       return productMapper.toResponse(productRepository.save(productMapper.toEntity(request)));
+       Product product = productMapper.toEntity(request);
+       product.setOwner(userRepository.findById(currentUser.id())
+               .orElseThrow(() -> new ResourceNotFoundException("User account not found")));
+       return productMapper.toResponse(productRepository.save(product));
    }
 
 
    public ProductResponse updateProduct(Long productId, UpdateProductRequest request){
        validate(request.sku(), request.name(), request.reorder_level());
        Product product = getEntity(productId);
-       productRepository.findBySku(request.sku()).filter(existing -> !existing.getId().equals(productId))
+       productRepository.findBySkuAndOwner_Id(request.sku(), currentUser.id())
+               .filter(existing -> !existing.getId().equals(productId))
                .ifPresent(existing -> { throw new IllegalStateException("Product SKU already exists"); });
        productMapper.updateEntity(request, product);
        return productMapper.toResponse(productRepository.save(product));
@@ -45,7 +56,7 @@ public class ProductService{
    }
 
    public List<ProductResponse> getProducts() {
-       return productRepository.findAll().stream().map(productMapper::toResponse).toList();
+       return productRepository.findAllByOwner_Id(currentUser.id()).stream().map(productMapper::toResponse).toList();
    }
 
    public void deleteProduct(Long productId) {
@@ -53,7 +64,7 @@ public class ProductService{
    }
 
    private Product getEntity(Long productId) {
-       return productRepository.findById(productId)
+       return productRepository.findByIdAndOwner_Id(productId, currentUser.id())
                .orElseThrow(() -> new ResourceNotFoundException("Product " + productId + " not found"));
    }
 

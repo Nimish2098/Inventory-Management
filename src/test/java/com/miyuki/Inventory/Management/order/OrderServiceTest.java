@@ -13,13 +13,18 @@ import com.miyuki.Inventory.Management.stock.InventoryitemRepository;
 import com.miyuki.Inventory.Management.stock.StockMovement;
 import com.miyuki.Inventory.Management.stock.StockMovementRepository;
 import com.miyuki.Inventory.Management.stock.StockMovementType;
+import com.miyuki.Inventory.Management.user.CurrentUser;
+import com.miyuki.Inventory.Management.user.UserAccount;
 import com.miyuki.Inventory.Management.warehouses.Warehouse;
 import com.miyuki.Inventory.Management.warehouses.WarehouseRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,6 +42,7 @@ class OrderServiceTest {
     private final WarehouseRepository warehouseRepository = mock(WarehouseRepository.class);
     private final InventoryitemRepository inventoryitemRepository = mock(InventoryitemRepository.class);
     private final StockMovementRepository stockMovementRepository = mock(StockMovementRepository.class);
+    private final CurrentUser currentUser = new CurrentUser();
 
     private final OrderService orderService = new OrderService(
             orderRepository,
@@ -44,7 +50,8 @@ class OrderServiceTest {
             productRepository,
             warehouseRepository,
             inventoryitemRepository,
-            stockMovementRepository);
+            stockMovementRepository,
+            currentUser);
 
     private Customer customer;
     private Product product;
@@ -53,6 +60,10 @@ class OrderServiceTest {
 
     @BeforeEach
     void setUp() {
+        UserAccount user = new UserAccount();
+        user.setId(5L);
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(user, null, user.getAuthorities()));
         customer = new Customer();
         customer.setId(7L);
         product = new Product();
@@ -65,11 +76,16 @@ class OrderServiceTest {
         inventoryItem.setQuantity(5L);
 
         when(customerService.findCustomer(7L)).thenReturn(customer);
-        when(productRepository.findById(11L)).thenReturn(Optional.of(product));
-        when(warehouseRepository.findById(13L)).thenReturn(Optional.of(warehouse));
-        when(inventoryitemRepository.findByProductIdAndWarehouseIdForUpdate(11L, 13L))
+        when(productRepository.findByIdAndOwner_Id(11L, 5L)).thenReturn(Optional.of(product));
+        when(warehouseRepository.findByIdAndOwner_Id(13L, 5L)).thenReturn(Optional.of(warehouse));
+        when(inventoryitemRepository.findByProductIdAndWarehouseIdForUpdate(11L, 13L, 5L))
                 .thenReturn(Optional.of(inventoryItem));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
+    @AfterEach
+    void clearAuthentication() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -108,7 +124,7 @@ class OrderServiceTest {
         assertEquals(2L, inventoryItem.getQuantity());
         assertEquals(1, response.items().size());
         assertEquals(3L, response.items().getFirst().quantity());
-        verify(inventoryitemRepository).findByProductIdAndWarehouseIdForUpdate(11L, 13L);
+        verify(inventoryitemRepository).findByProductIdAndWarehouseIdForUpdate(11L, 13L, 5L);
     }
 
     @Test
@@ -122,7 +138,7 @@ class OrderServiceTest {
         orderItem.setWarehouse(warehouse);
         orderItem.setQuantity(3L);
         order.addItem(orderItem);
-        when(orderRepository.findByIdForUpdate(17L)).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(17L, 5L)).thenReturn(Optional.of(order));
         inventoryItem.setQuantity(2L);
 
         OrderResponse response = orderService.cancelOrder(17L);

@@ -18,6 +18,7 @@ A Spring Boot REST API for managing products, warehouses, inventory levels, stoc
 - Spring Boot 4.1.1
 - Spring Web MVC
 - Spring Data JPA
+- Spring Security with stateless JWT bearer authentication
 - PostgreSQL
 - Maven Wrapper
 - JUnit and Spring Boot test support
@@ -75,7 +76,16 @@ CREATE DATABASE inventory;
 
 Update the username, password, host, port, or database name in `application.properties` to match the local PostgreSQL installation. For shared or production environments, do not commit credentials; provide them through environment-specific configuration or secret management.
 
-Hibernate is currently configured with `spring.jpa.hibernate.ddl-auto=update`, which allows Hibernate to update the schema during development. Use an explicit migration tool and a stricter schema strategy for production deployments.
+Set `JWT_SECRET` to a Base64-encoded random value containing at least 32 bytes before starting the application. For example, in PowerShell:
+
+```powershell
+$env:JWT_SECRET = [Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32))
+./mvnw.cmd spring-boot:run
+```
+
+Use a stable secret from a secret manager for deployed environments. Tokens are signed with HS256 and expire after one hour. Registration issues a token immediately; passwords must contain at least 12 characters and fit within bcrypt's 72-byte input limit.
+
+Hibernate is currently configured with `spring.jpa.hibernate.ddl-auto=update`, which allows Hibernate to update the schema during development. Use an explicit migration tool and a stricter schema strategy for production deployments. When upgrading an existing database, review the existing global email/SKU/code unique constraints: Hibernate does not automatically replace them with the new per-account uniqueness constraints.
 
 ## Running the Application
 
@@ -99,6 +109,30 @@ The application starts on the default Spring Boot port:
 http://localhost:8080
 ```
 
+## Authentication and account isolation
+
+Create an account using `POST /auth/register`:
+
+```json
+{
+  "name": "Sam Example",
+  "email": "sam@example.com",
+  "password": "a-long-unique-password"
+}
+```
+
+The response contains an `accessToken` and a user profile. Sign in with `POST /auth/login` using the same email and password. Send the returned token on every other endpoint using the `Authorization: Bearer <accessToken>` header:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+In Postman, first call `POST /auth/register` or `POST /auth/login` with a JSON body and copy `accessToken` from the successful response. For protected requests, open the **Authorization** tab, choose **Bearer Token**, and paste the token value without the `Bearer` prefix (Postman adds it). Alternatively, add an `Authorization` header with the bearer token. Registration and login do not require a token.
+
+`GET /users/me` returns the authenticated user's profile. New accounts receive the `USER` role. User identity and ownership are taken from the signed token, never from a request-supplied user ID. Products, warehouses, customers, inventory, movements, and orders are all isolated by account; requests for another account's resource return not found (or omit it from collections). An order can only use that account's customer, products, and warehouses.
+
+The application can add nullable `owner_id` columns to an existing schema, but existing rows are not assigned to an account automatically and remain unavailable through account-scoped APIs. Back up the database and assign existing customer, product, and warehouse rows to an account before deployment if that data must be retained. New records created through the authenticated API are always assigned to the current account.
+
 ## API Reference
 
 ### Create a Product
@@ -107,7 +141,15 @@ http://localhost:8080
 POST /product
 ## API Reference
 
-All endpoints use the base URL `http://localhost:8080`. Request and response fields retain the existing snake_case convention where applicable.
+All endpoints use the base URL `http://localhost:8080`. Except for registration and login, requests require a bearer token. Request and response fields retain the existing snake_case convention where applicable.
+
+### Authentication and users
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/auth/register` | Create an account and receive an access token |
+| `POST` | `/auth/login` | Authenticate and receive an access token |
+| `GET` | `/users/me` | Get the authenticated user's profile |
 
 ### Products
 
@@ -159,7 +201,7 @@ Stock adjustments and transfers use Spring transactions. Each balance change and
 
 ## Testing
 
-Run the full test suite with the Maven Wrapper:
+Run the full test suite with the Maven Wrapper and JDK 21:
 
 ### Windows
 
@@ -173,8 +215,6 @@ Run the full test suite with the Maven Wrapper:
 ./mvnw test
 ```
 
-The current `OrderServiceTest` references customer/order packages that are not present in `src/main`; update or remove that obsolete test before relying on a Maven test run.
-
 ## Project Structure
 
 ```text
@@ -182,6 +222,7 @@ src/
 ├── main/
 │   ├── java/com/miyuki/Inventory/Management/
 │   │   ├── common/
+│   │   ├── user/
 │   │   ├── product/
 │   │   ├── stock/
 │   │   └── warehouses/

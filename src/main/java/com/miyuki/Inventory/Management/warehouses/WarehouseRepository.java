@@ -7,7 +7,8 @@ import java.util.Optional;
 
 public interface WarehouseRepository extends JpaRepository<Warehouse,Long> {
 
-    Optional<Warehouse> findByCode(String code);
-    boolean existsByCode(String code);
-    List<Warehouse> findByActiveTrue();
+    Optional<Warehouse> findByIdAndOwner_Id(Long id, Long ownerId);
+    Optional<Warehouse> findByCodeAndOwner_Id(String code, Long ownerId);
+    boolean existsByCodeAndOwner_Id(String code, Long ownerId);
+    List<Warehouse> findByActiveTrueAndOwner_Id(Long ownerId);
 }

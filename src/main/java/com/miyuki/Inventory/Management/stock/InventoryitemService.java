@@ -8,6 +8,7 @@ import com.miyuki.Inventory.Management.stock.dto.StockTransferRequest;
 import com.miyuki.Inventory.Management.stock.dto.InventoryItemResponse;
 import com.miyuki.Inventory.Management.stock.dto.StockMovementResponse;
 import com.miyuki.Inventory.Management.warehouses.WarehouseRepository;
+import com.miyuki.Inventory.Management.user.CurrentUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,29 +22,32 @@ public class InventoryitemService {
         private final ProductRepository productRepository;
         private final WarehouseRepository warehouseRepository;
         private final InventoryMapper inventoryMapper;
+        private final CurrentUser currentUser;
 
         public InventoryitemService(InventoryitemRepository inventoryitemRepository,
                                     StockMovementRepository stockMovementRepository,
                                     ProductRepository productRepository,
                                     WarehouseRepository warehouseRepository,
-                                    InventoryMapper inventoryMapper){
+                                    InventoryMapper inventoryMapper,
+                                    CurrentUser currentUser){
             this.inventoryitemRepository = inventoryitemRepository;
             this.stockMovementRepository = stockMovementRepository;
             this.productRepository = productRepository;
             this.warehouseRepository = warehouseRepository;
             this.inventoryMapper = inventoryMapper;
+            this.currentUser = currentUser;
         }
 
         @Transactional
         public InventoryItemResponse adjustStock(StockAdjustmentRequest request){
             validateAdjustment(request);
-            var product = productRepository.findById(request.product_id())
+            var product = productRepository.findByIdAndOwner_Id(request.product_id(), currentUser.id())
                     .orElseThrow(() -> new ResourceNotFoundException("Product " + request.product_id() + " not found"));
-            var warehouse = warehouseRepository.findById(request.warehouse_id())
+            var warehouse = warehouseRepository.findByIdAndOwner_Id(request.warehouse_id(), currentUser.id())
                     .orElseThrow(() -> new ResourceNotFoundException("Warehouse " + request.warehouse_id() + " not found"));
 
             InventoryItem item = inventoryitemRepository.findByProductIdAndWarehouseIdForUpdate(
-                    request.product_id(), request.warehouse_id()).orElseGet(() -> {
+                    request.product_id(), request.warehouse_id(), currentUser.id()).orElseGet(() -> {
                 if (request.quantity() < 0) {
                     throw new InsufficientStockException("Inventory location has no stock");
                 }
@@ -73,20 +77,20 @@ public class InventoryitemService {
                 throw new IllegalArgumentException("Source and destination warehouses must differ");
             }
 
-            var product = productRepository.findById(request.product_id())
+            var product = productRepository.findByIdAndOwner_Id(request.product_id(), currentUser.id())
                     .orElseThrow(() -> new ResourceNotFoundException("Product " + request.product_id() + " not found"));
-            var fromWarehouse = warehouseRepository.findById(request.from_warehouse_id())
+            var fromWarehouse = warehouseRepository.findByIdAndOwner_Id(request.from_warehouse_id(), currentUser.id())
                     .orElseThrow(() -> new ResourceNotFoundException("Source warehouse not found"));
-            var toWarehouse = warehouseRepository.findById(request.to_warehouse_id())
+            var toWarehouse = warehouseRepository.findByIdAndOwner_Id(request.to_warehouse_id(), currentUser.id())
                     .orElseThrow(() -> new ResourceNotFoundException("Destination warehouse not found"));
             InventoryItem source = inventoryitemRepository.findByProductIdAndWarehouseIdForUpdate(
-                            request.product_id(), request.from_warehouse_id())
+                            request.product_id(), request.from_warehouse_id(), currentUser.id())
                     .orElseThrow(() -> new InsufficientStockException("Source inventory location has no stock"));
             if (source.getQuantity() < request.quantity()) {
                 throw new InsufficientStockException("Insufficient stock for transfer");
             }
             InventoryItem destination = inventoryitemRepository.findByProductIdAndWarehouseIdForUpdate(
-                    request.product_id(), request.to_warehouse_id()).orElseGet(() -> {
+                    request.product_id(), request.to_warehouse_id(), currentUser.id()).orElseGet(() -> {
                 InventoryItem newItem = new InventoryItem();
                 newItem.setProduct(product);
                 newItem.setWarehouse(toWarehouse);
@@ -105,7 +109,8 @@ public class InventoryitemService {
 
         @Transactional(readOnly = true)
         public InventoryItemResponse getStockLevel(Long productId, Long warehouseId){
-            InventoryItem item = inventoryitemRepository.findByProductIdAndWarehouseId(productId, warehouseId)
+            InventoryItem item = inventoryitemRepository.findByProduct_IdAndWarehouse_IdAndProduct_Owner_IdAndWarehouse_Owner_Id(
+                            productId, warehouseId, currentUser.id(), currentUser.id())
                     .orElseThrow(() -> new ResourceNotFoundException("Inventory location not found"));
             return inventoryMapper.toResponse(item);
         }
@@ -113,19 +118,23 @@ public class InventoryitemService {
         @Transactional(readOnly = true)
         public List<InventoryItemResponse> getInventory(Long warehouseId) {
             List<InventoryItem> items = warehouseId == null
-                    ? inventoryitemRepository.findAll()
-                    : inventoryitemRepository.findByWarehouse_Id(warehouseId);
+                    ? inventoryitemRepository.findAllByOwnerId(currentUser.id())
+                    : inventoryitemRepository.findByWarehouse_IdAndProduct_Owner_IdAndWarehouse_Owner_Id(
+                            warehouseId, currentUser.id(), currentUser.id());
             return items.stream().map(inventoryMapper::toResponse).toList();
         }
 
         @Transactional(readOnly = true)
         public List<InventoryItemResponse> getLowStockAlerts(){
-            return inventoryitemRepository.findLowStockItems().stream().map(inventoryMapper::toResponse).toList();
+            return inventoryitemRepository.findLowStockItems(currentUser.id()).stream()
+                    .map(inventoryMapper::toResponse).toList();
         }
 
         @Transactional(readOnly = true)
         public List<StockMovementResponse> getMovementHistory(Long productId, Long warehouseId) {
-            if (!inventoryitemRepository.findByProductIdAndWarehouseId(productId, warehouseId).isPresent()) {
+            if (inventoryitemRepository
+                    .findByProduct_IdAndWarehouse_IdAndProduct_Owner_IdAndWarehouse_Owner_Id(
+                            productId, warehouseId, currentUser.id(), currentUser.id()).isEmpty()) {
                 throw new ResourceNotFoundException("Inventory location not found");
             }
             return stockMovementRepository.findByProductAndWarehouse(productId, warehouseId).stream()
