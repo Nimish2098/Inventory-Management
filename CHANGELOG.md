@@ -1,5 +1,11 @@
 # Change Log
 
+## 2026-10-18: Fix Lombok annotation processing
+
+- Configured Lombok explicitly as a Maven compiler annotation processor so generated entity accessors and builders are available during clean builds.
+- Added an explicit `UserAccount.getPassword()` implementation for the Spring Security `UserDetails` contract.
+- Verified with `./mvnw.cmd -DskipTests clean compile` and `./mvnw.cmd -DskipTests test-compile`.
+
 ## 2026-09-30: Complete Product, Warehouse, and Inventory API
 
 ### What changed and why

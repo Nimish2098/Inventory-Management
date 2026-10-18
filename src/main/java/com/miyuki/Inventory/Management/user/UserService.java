@@ -4,7 +4,9 @@ import com.miyuki.Inventory.Management.user.dto.AuthResponse;
 import com.miyuki.Inventory.Management.user.dto.LoginRequest;
 import com.miyuki.Inventory.Management.user.dto.RegisterRequest;
 import com.miyuki.Inventory.Management.user.dto.UserResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -16,6 +18,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.nio.charset.StandardCharsets;
@@ -70,10 +73,16 @@ public class UserService {
         if (request == null || request.email() == null || request.password() == null) {
             throw new IllegalArgumentException("Email and password are required");
         }
-        Authentication authentication = authenticationManager.authenticate(
+        try{
+            Authentication authentication = authenticationManager.authenticate(
                 UsernamePasswordAuthenticationToken.unauthenticated(
-                        normalizeEmail(request.email()), request.password()));
-        return issueToken((UserAccount) authentication.getPrincipal());
+                    normalizeEmail(request.email()), request.password()));
+            return issueToken((UserAccount) authentication.getPrincipal());
+        }
+        catch (BadCredentialsException e) {
+          throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Email id or password is incorrect");
+        }
+
     }
 
     @Transactional(readOnly = true)

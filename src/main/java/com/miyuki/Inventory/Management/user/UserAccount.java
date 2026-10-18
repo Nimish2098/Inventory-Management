@@ -16,7 +16,8 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class UserAccount implements UserDetails {
+public
+class UserAccount implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,6 +31,11 @@ public class UserAccount implements UserDetails {
 
     @Column(nullable = false)
     private String name;
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

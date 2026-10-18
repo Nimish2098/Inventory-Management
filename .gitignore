@@ -33,11 +33,7 @@ build/
 .vscode/
 
 application.properties
-CHANGELOG.md
-remaining-items.md
-next-milestone-plan.md
 .postman
 postman
 business.md
-frontend-spa-requirements.md
 .env
