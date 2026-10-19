@@ -9,7 +9,6 @@ public class InventoryMapper {
 
     public InventoryItemResponse toResponse(InventoryItem item) {
         Long reorderLevel = item.getProduct().getReorderLevel();
-        boolean lowStock = reorderLevel != null && item.getQuantity() < reorderLevel;
         return new InventoryItemResponse(
                 item.getId(),
                 item.getProduct().getId(),
@@ -19,8 +18,13 @@ public class InventoryMapper {
                 item.getQuantity(),
                 item.getBin(),
                 reorderLevel,
-                lowStock
+                isLowStock(item)
         );
+    }
+
+    public boolean isLowStock(InventoryItem item) {
+        Long reorderLevel = item.getProduct().getReorderLevel();
+        return reorderLevel != null && item.getQuantity() < reorderLevel;
     }
 
     public StockMovementResponse toResponse(StockMovement movement) {

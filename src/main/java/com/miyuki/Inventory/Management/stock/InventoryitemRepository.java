@@ -3,6 +3,7 @@ package com.miyuki.Inventory.Management.stock;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -29,6 +30,11 @@ public interface InventoryitemRepository extends JpaRepository<InventoryItem,Lon
      @Query("select item from InventoryItem item where item.product.owner.id = :ownerId " +
              "and item.warehouse.owner.id = :ownerId")
      List<InventoryItem> findAllByOwnerId(@Param("ownerId") Long ownerId);
+
+     @EntityGraph(attributePaths = {"product", "warehouse"})
+     @Query("select item from InventoryItem item " +
+             "where item.product.owner.id = item.warehouse.owner.id")
+     List<InventoryItem> findAllForMonitoring();
 
      List<InventoryItem> findByWarehouse_IdAndProduct_Owner_IdAndWarehouse_Owner_Id(
              Long warehouseId, Long productOwnerId, Long warehouseOwnerId);

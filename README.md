@@ -10,6 +10,7 @@ A Spring Boot REST API for managing products, warehouses, inventory levels, stoc
 - Adjust stock with typed inbound, outbound, and adjustment movements.
 - Transfer stock between warehouses in one transaction.
 - View low-stock locations and per-location movement history.
+- Monitor warehouse inventory on a schedule and receive Discord alerts when a low-stock condition begins.
 - Return consistent HTTP errors for missing resources, invalid requests, and conflicts.
 
 ## Technology Stack
@@ -198,6 +199,18 @@ Outbound adjustments use a negative `quantity`; inbound adjustments use a positi
 ## Transaction Behavior
 
 Stock adjustments and transfers use Spring transactions. Each balance change and its corresponding stock movement are committed together or rolled back together. Outbound changes and transfers cannot reduce a location below zero.
+
+## Scheduled low-stock monitoring
+
+The application checks each inventory item at a fixed delay (five minutes by default) and sends a Discord incoming-webhook message when its quantity first falls below the product's reorder level. Monitoring considers only inventory whose product and warehouse belong to the same account. It reads inventory but never changes quantities, reservations, orders, or transfers.
+
+Set `DISCORD_WEBHOOK_URL` to the Discord incoming webhook URL to enable delivery. Without it, the application still starts, but each attempted alert is reported as a configuration error and is not marked delivered. Set `MONITOR_INVENTORY_INTERVAL_MS` to a positive delay in milliseconds to change the interval; for example, `60000` checks every minute. Do not commit webhook URLs or expose them in logs.
+
+To create the webhook in Discord, open the target channel's **Edit Channel → Integrations → Webhooks**, choose **New Webhook**, then **Copy Webhook URL** and provide it as `DISCORD_WEBHOOK_URL`. Restart the application after setting environment variables.
+
+The `inventory_alert_state` table stores each inventory item's current low-stock episode and delivery status. A successful notification is not resent on later checks while stock remains low. When stock recovers to or above the reorder level, the episode is cleared; a subsequent drop can notify again. If delivery fails or Discord rate-limits the request, the episode remains pending and the next monitoring cycle retries it. Discord delivery and database persistence cannot form one atomic transaction, so an ambiguous network failure after Discord accepts a message can result in a retry.
+
+To verify locally, set a test webhook URL and optionally `MONITOR_INVENTORY_INTERVAL_MS=60000`, start the app using the instructions above, and adjust an item's stock below its reorder level. Confirm the message in the configured channel, check that another interval does not repeat it, restore stock, then lower it again. Automated tests mock the HTTP client and never post to Discord. Run them with `./mvnw.cmd test` on Windows (or `./mvnw test` on Linux/macOS).
 
 ## Testing
 

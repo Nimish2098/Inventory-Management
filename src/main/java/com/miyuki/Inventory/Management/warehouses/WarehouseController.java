@@ -35,6 +35,7 @@ public class WarehouseController {
         return warehouseService.updateWarehouse(id,request);
     }
 
+
     @GetMapping("/{id}")
     public WarehouseResponse getWarehouseDetails(@PathVariable Long id){
         return warehouseService.getWarehouseById(id);
