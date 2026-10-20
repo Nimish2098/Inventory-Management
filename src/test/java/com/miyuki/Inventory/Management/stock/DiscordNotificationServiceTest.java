@@ -44,7 +44,27 @@ class DiscordNotificationServiceTest {
                 DiscordNotificationService.DiscordNotificationException.class,
                 () -> service.sendLowStockAlert("LOW STOCK ALERT"));
 
-        org.junit.jupiter.api.Assertions.assertTrue(exception.getMessage().contains("Retry-After: 2"));
+        org.junit.jupiter.api.Assertions.assertEquals(
+                java.util.Optional.of(java.time.Duration.ofSeconds(2)), exception.getRetryAfter());
+        org.junit.jupiter.api.Assertions.assertTrue(exception.isRetryable());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void unauthorizedWebhookIsPermanentAndDoesNotExposeItsUrl() throws Exception {
+        HttpClient httpClient = mock(HttpClient.class);
+        HttpResponse<Void> response = mock(HttpResponse.class);
+        when(response.statusCode()).thenReturn(401);
+        when(httpClient.send(any(), any(HttpResponse.BodyHandler.class))).thenReturn(response);
+        String webhook = "https://discord.com/api/webhooks/private-token";
+        DiscordNotificationService service = new DiscordNotificationService(webhook, httpClient);
+
+        DiscordNotificationService.DiscordNotificationException exception = assertThrows(
+                DiscordNotificationService.DiscordNotificationException.class,
+                () -> service.sendNotification("alert"));
+
+        org.junit.jupiter.api.Assertions.assertFalse(exception.isRetryable());
+        org.junit.jupiter.api.Assertions.assertFalse(exception.getMessage().contains(webhook));
     }
 
     @Test

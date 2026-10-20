@@ -1,11 +1,11 @@
 package com.miyuki.Inventory.Management.warehouses;
 
-
-import org.springframework.web.bind.annotation.*;
 import com.miyuki.Inventory.Management.warehouses.dto.CreateWarehouseRequest;
 import com.miyuki.Inventory.Management.warehouses.dto.UpdateWarehouseRequest;
 import com.miyuki.Inventory.Management.warehouses.dto.WarehouseResponse;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -21,24 +21,23 @@ public class WarehouseController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public WarehouseResponse createWarehouse(@RequestBody CreateWarehouseRequest request){
+    public WarehouseResponse createWarehouse(@Valid @RequestBody CreateWarehouseRequest request){
         return warehouseService.createWarehouse(request);
     }
 
     @GetMapping
-    public List<WarehouseResponse> getAllActiveWarehouse(){
+    public List<WarehouseResponse> getAllActiveWarehouses(){
         return warehouseService.getAllActiveWarehouses();
     }
 
-    @PutMapping("/{id}")
-    public WarehouseResponse updateWarehouse(@PathVariable Long id,@RequestBody UpdateWarehouseRequest request){
-        return warehouseService.updateWarehouse(id,request);
+    @GetMapping("/{id}")
+    public WarehouseResponse getWarehouseById(@PathVariable Long id){
+        return warehouseService.getWarehouseById(id);
     }
 
-
-    @GetMapping("/{id}")
-    public WarehouseResponse getWarehouseDetails(@PathVariable Long id){
-        return warehouseService.getWarehouseById(id);
+    @PutMapping("/{id}")
+    public WarehouseResponse updateWarehouse(@PathVariable Long id, @Valid @RequestBody UpdateWarehouseRequest request){
+        return warehouseService.updateWarehouse(id, request);
     }
 
     @DeleteMapping("/{id}")

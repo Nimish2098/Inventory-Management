@@ -1,31 +1,34 @@
 package com.miyuki.Inventory.Management.stock;
 
+import com.miyuki.Inventory.Management.external.ProductNotificationEvent;
+import com.miyuki.Inventory.Management.external.ProductNotificationEventRepository;
 import com.miyuki.Inventory.Management.product.Product;
 import com.miyuki.Inventory.Management.warehouses.Warehouse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LowStockAlertServiceTest {
 
     private final InventoryitemRepository inventoryRepository = mock(InventoryitemRepository.class);
     private final InventoryAlertStateRepository alertStateRepository = mock(InventoryAlertStateRepository.class);
-    private final DiscordNotificationService notificationService = mock(DiscordNotificationService.class);
-    private final InventoryMapper inventoryMapper = new InventoryMapper();
-
-    private final LowStockAlertService service = new LowStockAlertService(
-            inventoryRepository, alertStateRepository, inventoryMapper, notificationService);
+    private final ProductNotificationEventRepository notificationRepository =
+            mock(ProductNotificationEventRepository.class);
+    private final InternalLowStockAlertRecorder recorder = new InternalLowStockAlertRecorder(
+            inventoryRepository, alertStateRepository, notificationRepository, new InventoryMapper());
 
     private InventoryItem item;
 
@@ -41,98 +44,81 @@ class LowStockAlertServiceTest {
         item.setProduct(product);
         item.setWarehouse(warehouse);
         item.setQuantity(15L);
+        when(inventoryRepository.findForMonitoringById(8L)).thenReturn(Optional.of(item));
         when(alertStateRepository.save(any(InventoryAlertState.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
-    void inventoryAboveReorderLevelDoesNotNotify() {
+    void inventoryAboveReorderLevelDoesNotCreateAlert() {
         item.setQuantity(21L);
-        when(inventoryRepository.findAllForMonitoring()).thenReturn(List.of(item));
+        when(alertStateRepository.findByInventoryItemIdForUpdate(8L)).thenReturn(Optional.empty());
 
-        service.checkInventory();
+        assertFalse(recorder.check(8L));
 
-        verify(notificationService, never()).sendLowStockAlert(any());
-        verify(alertStateRepository, never()).save(any());
+        verify(notificationRepository, never()).save(any(ProductNotificationEvent.class));
+        verify(alertStateRepository, never()).save(any(InventoryAlertState.class));
     }
 
     @Test
-    void lowStockNotifiesOnceWhileConditionIsUnchanged() {
-        when(inventoryRepository.findAllForMonitoring()).thenReturn(List.of(item));
-        when(alertStateRepository.findById(8L)).thenReturn(Optional.empty())
-                .thenReturn(Optional.of(new InventoryAlertState(8L, true, true)));
-        long quantityBefore = item.getQuantity();
+    void lowStockTransitionPersistsOneEventWithoutChangingQuantity() {
+        when(alertStateRepository.findByInventoryItemIdForUpdate(8L)).thenReturn(Optional.empty());
+        long quantity = item.getQuantity();
 
-        service.checkInventory();
-        service.checkInventory();
+        assertTrue(recorder.check(8L));
 
-        verify(notificationService, times(1)).sendLowStockAlert(any());
-        assertEquals(quantityBefore, item.getQuantity());
+        org.mockito.ArgumentCaptor<ProductNotificationEvent> event =
+                org.mockito.ArgumentCaptor.forClass(ProductNotificationEvent.class);
+        verify(notificationRepository).save(event.capture());
+        assertEquals("inventory:8:low-stock:1", event.getValue().getEventKey());
+        assertEquals(quantity, item.getQuantity());
     }
 
     @Test
-    void notificationContainsTheActualProductWarehouseAndQuantities() {
-        when(inventoryRepository.findAllForMonitoring()).thenReturn(List.of(item));
-        when(alertStateRepository.findById(8L)).thenReturn(Optional.empty());
-        org.mockito.ArgumentCaptor<String> message = org.mockito.ArgumentCaptor.forClass(String.class);
+    void unchangedLowStockEpisodeDoesNotCreateDuplicateEvents() {
+        when(alertStateRepository.findByInventoryItemIdForUpdate(8L))
+                .thenReturn(Optional.of(new InventoryAlertState(8L, true, 1L)));
 
-        service.checkInventory();
+        assertFalse(recorder.check(8L));
+        assertFalse(recorder.check(8L));
 
-        verify(notificationService).sendLowStockAlert(message.capture());
-        assertTrue(message.getValue().contains("Product: Tea"));
-        assertTrue(message.getValue().contains("Warehouse: WH-EAST"));
-        assertTrue(message.getValue().contains("Current quantity: 15"));
-        assertTrue(message.getValue().contains("Reorder level: 20"));
+        verify(notificationRepository, never()).save(any(ProductNotificationEvent.class));
     }
 
     @Test
-    void failedDeliveryRemainsPendingAndIsRetried() {
-        InventoryAlertState pending = new InventoryAlertState(8L, true, false);
-        when(inventoryRepository.findAllForMonitoring()).thenReturn(List.of(item));
-        when(alertStateRepository.findById(8L))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(pending));
-        org.mockito.Mockito.doThrow(new DiscordNotificationService.DiscordNotificationException(
-                        "Discord notification failed"))
-                .doNothing()
-                .when(notificationService).sendLowStockAlert(any());
+    void recoveryThenAnotherLowTransitionIncrementsEpisodeKey() {
+        InventoryAlertState state = new InventoryAlertState(8L, true, 1L);
+        when(alertStateRepository.findByInventoryItemIdForUpdate(8L))
+                .thenReturn(Optional.of(state))
+                .thenReturn(Optional.of(state));
+        item.setQuantity(20L);
 
-        service.checkInventory();
-        service.checkInventory();
+        assertFalse(recorder.check(8L));
 
-        verify(notificationService, times(2)).sendLowStockAlert(any());
-        assertTrue(pending.isNotificationSent());
-    }
-
-    @Test
-    void recoveryThenLowStockCreatesANewAlert() {
-        when(inventoryRepository.findAllForMonitoring()).thenReturn(List.of(item));
-        when(alertStateRepository.findById(8L))
-                .thenReturn(Optional.of(new InventoryAlertState(8L, true, true)))
-                .thenReturn(Optional.of(new InventoryAlertState(8L, false, false)));
-
-        item.setQuantity(25L);
-        service.checkInventory();
         item.setQuantity(15L);
-        service.checkInventory();
+        assertTrue(recorder.check(8L));
 
-        verify(notificationService, times(1)).sendLowStockAlert(any());
-        verify(alertStateRepository, times(3)).save(any(InventoryAlertState.class));
+        org.mockito.ArgumentCaptor<ProductNotificationEvent> event =
+                org.mockito.ArgumentCaptor.forClass(ProductNotificationEvent.class);
+        verify(notificationRepository).save(event.capture());
+        assertEquals("inventory:8:low-stock:2", event.getValue().getEventKey());
     }
 
     @Test
-    void failedInventoryRecordDoesNotPreventOtherRecordsFromBeingChecked() {
-        InventoryItem nextItem = new InventoryItem();
-        nextItem.setId(9L);
-        nextItem.setProduct(item.getProduct());
-        nextItem.setWarehouse(item.getWarehouse());
-        nextItem.setQuantity(10L);
-        when(inventoryRepository.findAllForMonitoring()).thenReturn(List.of(item, nextItem));
-        when(alertStateRepository.findById(8L)).thenThrow(new IllegalStateException("database read failed"));
-        when(alertStateRepository.findById(9L)).thenReturn(Optional.empty());
+    void failedItemDoesNotPreventOtherInventoryFromBeingProcessed() {
+        InventoryItem other = new InventoryItem();
+        other.setId(9L);
+        when(inventoryRepository.findAllForMonitoring(any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(item, other)));
+        InternalLowStockAlertRecorder failingRecorder = mock(InternalLowStockAlertRecorder.class);
+        when(failingRecorder.check(8L)).thenThrow(new IllegalStateException("recording error"));
 
-        service.checkInventory();
+        LowStockAlertService service = new LowStockAlertService(inventoryRepository, failingRecorder);
+        LowStockAlertService.MonitoringResult result = service.checkInventory();
 
-        verify(notificationService).sendLowStockAlert(any());
+        assertEquals(2, result.processed());
+        assertEquals(1, result.failed());
+        verify(failingRecorder).check(8L);
+        verify(failingRecorder).check(9L);
     }
 }

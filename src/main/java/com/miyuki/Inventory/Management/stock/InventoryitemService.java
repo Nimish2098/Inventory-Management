@@ -137,7 +137,7 @@ public class InventoryitemService {
                             productId, warehouseId, currentUser.id(), currentUser.id()).isEmpty()) {
                 throw new ResourceNotFoundException("Inventory location not found");
             }
-            return stockMovementRepository.findByProductAndWarehouse(productId, warehouseId).stream()
+            return stockMovementRepository.findByProductAndWarehouseAndOwnerId(productId, warehouseId, currentUser.id()).stream()
                     .map(inventoryMapper::toResponse).toList();
         }
 

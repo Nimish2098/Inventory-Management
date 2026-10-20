@@ -1,9 +1,10 @@
 package com.miyuki.Inventory.Management.stock;
 
-import com.miyuki.Inventory.Management.stock.dto.StockAdjustmentRequest;
-import com.miyuki.Inventory.Management.stock.dto.StockTransferRequest;
 import com.miyuki.Inventory.Management.stock.dto.InventoryItemResponse;
+import com.miyuki.Inventory.Management.stock.dto.StockAdjustmentRequest;
 import com.miyuki.Inventory.Management.stock.dto.StockMovementResponse;
+import com.miyuki.Inventory.Management.stock.dto.StockTransferRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,14 +19,13 @@ public class InventoryitemController {
         this.inventoryitemService = inventoryitemService;
     }
 
-
     @PostMapping({"", "/adjustments"})
-    public InventoryItemResponse adjustStock(@RequestBody StockAdjustmentRequest request){
+    public InventoryItemResponse adjustStock(@Valid @RequestBody StockAdjustmentRequest request){
         return inventoryitemService.adjustStock(request);
     }
 
     @PostMapping("/transfers")
-    public List<InventoryItemResponse> transferStock(@RequestBody StockTransferRequest request) {
+    public List<InventoryItemResponse> transferStock(@Valid @RequestBody StockTransferRequest request) {
         return inventoryitemService.transferStock(request);
     }
 

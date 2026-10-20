@@ -12,6 +12,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Optional;
 
 @Service
 public class DiscordNotificationService {
@@ -36,6 +37,10 @@ public class DiscordNotificationService {
     }
 
     public void sendLowStockAlert(String message) {
+        sendNotification(message);
+    }
+
+    public void sendNotification(String message) {
         if (webhookUrl == null || webhookUrl.isBlank()) {
             throw new IllegalStateException(
                     "Discord webhook is not configured. Set DISCORD_WEBHOOK_URL to enable notifications.");
@@ -61,22 +66,26 @@ public class DiscordNotificationService {
             if (status == 429) {
                 String retryAfter = response.headers().firstValue("Retry-After").orElse("unspecified");
                 throw new DiscordNotificationException(
-                        "Discord rate-limited the notification; Retry-After: " + retryAfter + ".");
+                        "Discord rate-limited the notification.",
+                        true,
+                        parseRetryAfter(retryAfter));
             }
             if (status < 200 || status >= 300) {
                 throw new DiscordNotificationException(
-                        "Discord rejected the notification with HTTP status " + status + ".");
+                        "Discord rejected the notification with HTTP status " + status + ".",
+                        status >= 500,
+                        Optional.empty());
             }
         } catch (DiscordNotificationException exception) {
             throw exception;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new DiscordNotificationException("Discord notification was interrupted.");
+            throw new DiscordNotificationException("Discord notification was interrupted.", true, Optional.empty());
         } catch (IOException exception) {
             throw new DiscordNotificationException(
-                    "Discord notification failed due to an HTTP or timeout error.");
+                    "Discord notification failed due to an HTTP or timeout error.", true, Optional.empty());
         }
-        logger.info("Discord low-stock notification delivered");
+        logger.info("Discord notification delivered");
     }
 
     private String escapeJson(String value) {
@@ -103,10 +112,41 @@ public class DiscordNotificationService {
         return escaped.toString();
     }
 
+    private Optional<Duration> parseRetryAfter(String retryAfter) {
+        try {
+            double seconds = Double.parseDouble(retryAfter);
+            if (seconds >= 0 && Double.isFinite(seconds)) {
+                return Optional.of(Duration.ofMillis((long) Math.ceil(seconds * 1000)));
+            }
+        } catch (NumberFormatException ignored) {
+            logger.warn("Discord returned an invalid Retry-After value; applying standard backoff");
+        }
+        return Optional.empty();
+    }
+
     public static class DiscordNotificationException extends RuntimeException {
+        private final boolean retryable;
+        private final Optional<Duration> retryAfter;
+
         public DiscordNotificationException(String message) {
-            super(message);
+            this(message, false, Optional.empty());
         }
 
+        public DiscordNotificationException(
+                String message,
+                boolean retryable,
+                Optional<Duration> retryAfter) {
+            super(message);
+            this.retryable = retryable;
+            this.retryAfter = retryAfter;
+        }
+
+        public boolean isRetryable() {
+            return retryable;
+        }
+
+        public Optional<Duration> getRetryAfter() {
+            return retryAfter;
+        }
     }
 }

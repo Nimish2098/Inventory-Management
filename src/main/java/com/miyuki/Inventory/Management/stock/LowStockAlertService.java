@@ -1,95 +1,60 @@
 package com.miyuki.Inventory.Management.stock;
 
-import com.miyuki.Inventory.Management.stock.DiscordNotificationService.DiscordNotificationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class LowStockAlertService {
 
     private static final Logger logger = LoggerFactory.getLogger(LowStockAlertService.class);
+    private static final int BATCH_SIZE = 100;
 
     private final InventoryitemRepository inventoryRepository;
-    private final InventoryAlertStateRepository alertStateRepository;
-    private final InventoryMapper inventoryMapper;
-    private final DiscordNotificationService notificationService;
+    private final InternalLowStockAlertRecorder alertRecorder;
 
     public LowStockAlertService(
             InventoryitemRepository inventoryRepository,
-            InventoryAlertStateRepository alertStateRepository,
-            InventoryMapper inventoryMapper,
-            DiscordNotificationService notificationService) {
+            InternalLowStockAlertRecorder alertRecorder) {
         this.inventoryRepository = inventoryRepository;
-        this.alertStateRepository = alertStateRepository;
-        this.inventoryMapper = inventoryMapper;
-        this.notificationService = notificationService;
+        this.alertRecorder = alertRecorder;
     }
 
-    public void checkInventory() {
-        List<InventoryItem> inventoryItems;
-        try {
-            inventoryItems = inventoryRepository.findAllForMonitoring();
-        } catch (RuntimeException exception) {
-            logger.error("Could not load inventory for low-stock monitoring", exception);
-            return;
-        }
-
-        for (InventoryItem item : inventoryItems) {
+    public MonitoringResult checkInventory() {
+        int processed = 0;
+        int failed = 0;
+        int eventsCreated = 0;
+        int pageNumber = 0;
+        Page<InventoryItem> page;
+        do {
             try {
-                processItem(item);
+                page = inventoryRepository.findAllForMonitoring(
+                        PageRequest.of(pageNumber, BATCH_SIZE, Sort.by(Sort.Direction.ASC, "id")));
             } catch (RuntimeException exception) {
-                logger.error("Low-stock monitoring failed for inventory item {}", item.getId(), exception);
+                logger.error("Could not load inventory batch for low-stock monitoring", exception);
+                return new MonitoringResult(processed, failed + 1, eventsCreated);
             }
-        }
+
+            for (InventoryItem item : page.getContent()) {
+                processed++;
+                try {
+                    if (alertRecorder.check(item.getId())) {
+                        eventsCreated++;
+                    }
+                } catch (RuntimeException exception) {
+                    failed++;
+                    logger.error("Low-stock monitoring failed for inventory item {} ({})",
+                            item.getId(), exception.getClass().getSimpleName());
+                }
+            }
+            pageNumber++;
+        } while (page.hasNext());
+        return new MonitoringResult(processed, failed, eventsCreated);
     }
 
-    private void processItem(InventoryItem item) {
-        boolean lowStock = inventoryMapper.isLowStock(item);
-        Optional<InventoryAlertState> existing = alertStateRepository.findById(item.getId());
-
-        if (!lowStock) {
-            existing.filter(InventoryAlertState::isLowStock).ifPresent(state -> {
-                state.setLowStock(false);
-                state.setNotificationSent(false);
-                alertStateRepository.save(state);
-                logger.info("Low-stock condition recovered for inventory item {}", item.getId());
-            });
-            return;
-        }
-
-        InventoryAlertState state = existing.orElseGet(
-                () -> new InventoryAlertState(item.getId(), false, false));
-        if (state.isLowStock() && state.isNotificationSent()) {
-            return;
-        }
-
-        state.setLowStock(true);
-        state.setNotificationSent(false);
-        state = alertStateRepository.save(state);
-        notificationService.sendLowStockAlert(formatMessage(item));
-        state.setNotificationSent(true);
-        alertStateRepository.save(state);
-        logger.info("Low-stock alert delivered for inventory item {}", item.getId());
-    }
-
-    private String formatMessage(InventoryItem item) {
-        return """
-                LOW STOCK ALERT
-
-                Product: %s
-                Warehouse: %s
-                Current quantity: %d
-                Reorder level: %d
-
-                Stock has fallen below the configured reorder level.
-                """.formatted(
-                item.getProduct().getName(),
-                item.getWarehouse().getCode(),
-                item.getQuantity(),
-                item.getProduct().getReorderLevel());
+    public record MonitoringResult(int processed, int failed, int eventsCreated) {
     }
 }

@@ -3,6 +3,7 @@ package com.miyuki.Inventory.Management.product;
 import com.miyuki.Inventory.Management.product.dto.CreateProductRequest;
 import com.miyuki.Inventory.Management.product.dto.ProductResponse;
 import com.miyuki.Inventory.Management.product.dto.UpdateProductRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -12,17 +13,15 @@ import java.util.List;
 @RequestMapping("/product")
 public class ProductController {
 
-
     private final ProductService productService;
 
     public ProductController(ProductService productService){
         this.productService = productService;
     }
 
-
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ProductResponse createProduct(@RequestBody CreateProductRequest request){
+    public ProductResponse createProduct(@Valid @RequestBody CreateProductRequest request){
         return productService.createProduct(request);
     }
 
@@ -37,8 +36,8 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    public ProductResponse updateProduct(@PathVariable Long id, @RequestBody UpdateProductRequest product){
-        return productService.updateProduct(id,product);
+    public ProductResponse updateProduct(@PathVariable Long id, @Valid @RequestBody UpdateProductRequest product){
+        return productService.updateProduct(id, product);
     }
 
     @DeleteMapping("/{id}")

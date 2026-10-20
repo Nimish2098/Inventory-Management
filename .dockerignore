@@ -4,3 +4,10 @@ build/
 .gitignore
 *.iml
 .mvn/
+.idea/
+.vscode/
+.env
+.env.*
+*.md
+postman/
+.postman/

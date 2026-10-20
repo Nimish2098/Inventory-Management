@@ -22,12 +22,14 @@ public class InventoryAlertState {
     @Column(nullable = false)
     private boolean lowStock;
 
-    @Column(nullable = false)
-    private boolean notificationSent;
+    @Column(name = "notification_sent", nullable = false)
+    private boolean notificationQueued;
 
-    public InventoryAlertState(Long inventoryItemId, boolean lowStock, boolean notificationSent) {
+    private Long episodeNumber;
+
+    public InventoryAlertState(Long inventoryItemId, boolean lowStock, Long episodeNumber) {
         this.inventoryItemId = inventoryItemId;
         this.lowStock = lowStock;
-        this.notificationSent = notificationSent;
+        this.episodeNumber = episodeNumber;
     }
 }

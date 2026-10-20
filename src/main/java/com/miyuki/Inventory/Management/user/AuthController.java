@@ -3,6 +3,7 @@ package com.miyuki.Inventory.Management.user;
 import com.miyuki.Inventory.Management.user.dto.AuthResponse;
 import com.miyuki.Inventory.Management.user.dto.LoginRequest;
 import com.miyuki.Inventory.Management.user.dto.RegisterRequest;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,12 +19,12 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@RequestBody RegisterRequest request) {
+    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
         return userService.register(request);
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody LoginRequest request) {
+    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return userService.login(request);
     }
 }
