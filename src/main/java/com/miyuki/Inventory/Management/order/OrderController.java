@@ -2,7 +2,6 @@ package com.miyuki.Inventory.Management.order;
 
 import com.miyuki.Inventory.Management.order.dto.CreateOrderRequest;
 import com.miyuki.Inventory.Management.order.dto.OrderResponse;
-import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +19,7 @@ public class OrderController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request) {
+    public OrderResponse createOrder(@RequestBody CreateOrderRequest request) {
         return orderService.createOrder(request);
     }
 

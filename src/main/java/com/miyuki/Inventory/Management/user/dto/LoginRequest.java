@@ -1,11 +1,4 @@
 package com.miyuki.Inventory.Management.user.dto;
 
-import jakarta.validation.constraints.NotBlank;
-
-public record LoginRequest(
-        @NotBlank(message = "Email is required")
-        String email,
-
-        @NotBlank(message = "Password is required")
-        String password) {
+public record LoginRequest(String email, String password) {
 }

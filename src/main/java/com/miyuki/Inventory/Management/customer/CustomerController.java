@@ -2,7 +2,6 @@ package com.miyuki.Inventory.Management.customer;
 
 import com.miyuki.Inventory.Management.customer.dto.CreateCustomerRequest;
 import com.miyuki.Inventory.Management.customer.dto.CustomerResponse;
-import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +19,7 @@ public class CustomerController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public CustomerResponse createCustomer(@Valid @RequestBody CreateCustomerRequest request) {
+    public CustomerResponse createCustomer(@RequestBody CreateCustomerRequest request) {
         return customerService.createCustomer(request);
     }
 

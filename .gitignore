@@ -37,3 +37,8 @@ application.properties
 postman
 business.md
 .env
+.env.*
+!.env.example
+Test-Data
+
+application-dev.yaml

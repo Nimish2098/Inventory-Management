@@ -1,6 +1,6 @@
 package com.miyuki.Inventory.Management.stock.dto;
 
-import com.miyuki.Inventory.Management.stock.StockMovementType;
+import com.miyuki.Inventory.Management.stock.model.StockMovementType;
 
 public record StockMovementResponse(
         Long id,

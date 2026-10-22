@@ -1,0 +1,15 @@
+
+spring:
+  application:
+    name: Inventory-Management
+  profiles:
+    default: dev
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect

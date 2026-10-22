@@ -13,4 +13,7 @@ public interface ProductRepository  extends JpaRepository<Product,Long> {
     Optional<Product> findBySkuAndOwner_Id(String sku, Long ownerId);
     boolean existsBySkuAndOwner_Id(String sku, Long ownerId);
     List<Product> findAllByOwner_Id(Long ownerId);
+
+    // Bulk lookup: find existing SKUs for one user.
+    List<Product> findAllByOwner_IdAndSkuIn(Long ownerId,List<String> skus);
 }
