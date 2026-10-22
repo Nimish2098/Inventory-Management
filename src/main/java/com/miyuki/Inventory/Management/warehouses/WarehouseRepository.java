@@ -11,4 +11,6 @@ public interface WarehouseRepository extends JpaRepository<Warehouse,Long> {
     Optional<Warehouse> findByCodeAndOwner_Id(String code, Long ownerId);
     boolean existsByCodeAndOwner_Id(String code, Long ownerId);
     List<Warehouse> findByActiveTrueAndOwner_Id(Long ownerId);
+    List<Warehouse> findAllByOwner_Id(Long ownerId);
+
 }

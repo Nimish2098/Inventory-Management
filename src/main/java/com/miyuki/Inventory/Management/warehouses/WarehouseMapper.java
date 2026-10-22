@@ -10,26 +10,30 @@ public class WarehouseMapper {
 
     public Warehouse toEntity(CreateWarehouseRequest request) {
         Warehouse warehouse = new Warehouse();
-        warehouse.setCode(request.code());
-        warehouse.setName(request.name());
+        warehouse.setCode(request.code().trim().toUpperCase());
+        warehouse.setName(request.name().trim());
         warehouse.setCapacity(request.capacity());
+        warehouse.setActive(true);
         return warehouse;
     }
 
-    public void updateEntity(UpdateWarehouseRequest request, Warehouse warehouse) {
-        warehouse.setCode(request.code());
-        warehouse.setName(request.name());
+    public void updateEntity(
+        UpdateWarehouseRequest request,
+        Warehouse warehouse
+    ) {
+        warehouse.setCode(request.code().trim().toUpperCase());
+        warehouse.setName(request.name().trim());
         warehouse.setCapacity(request.capacity());
         warehouse.setActive(request.isActive());
     }
 
     public WarehouseResponse toResponse(Warehouse warehouse) {
         return new WarehouseResponse(
-                warehouse.getId(),
-                warehouse.getCode(),
-                warehouse.getName(),
-                warehouse.getCapacity(),
-                warehouse.isActive()
+            warehouse.getId(),
+            warehouse.getCode(),
+            warehouse.getName(),
+            warehouse.getCapacity(),
+            warehouse.isActive()
         );
     }
 }
